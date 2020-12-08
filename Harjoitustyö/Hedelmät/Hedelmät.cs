@@ -6,7 +6,7 @@ using Jypeli.Controls;
 using Jypeli.Widgets;
 
 /// @author  Alisa Karjalainen
-/// @version 30.11.2020
+/// @version 01.12.2020
 ///
 /// <summary>
 /// Peli, jossa tippuvia hedelmiä kerätään laatikkoon. Pelin voittaa kun pelaaja saa 20 pistettä. Pelin häviää jos pelaajan pisteet ovat -5 pistettä.
@@ -15,16 +15,28 @@ using Jypeli.Widgets;
 public class Hedelmät : PhysicsGame
 {
     private PhysicsObject laatikko;
-
     private IntMeter pelaajanPisteet;
+    private static readonly Image[] laatikkoKuvat = LoadImages("LaatikkoTyhja", "LaatikkoPuoliksiTaynna", "LaatikkoTaynna");
 
-    private PhysicsObject alaReuna;
+    private const int MAX_HEDELMIEN_MAARA = 3;
+    private const int MIN_HEDELMIEN_MAARA = 1;
+    private const double NOPEUS = 500.0;
+    private const double PYSAHTYY = 0.0;
+    private const double POHJAKOKO = 70.0;
+    private const double LAATIKKO_Y = 50.0;
+    private const double LAATIKKO_X = 0.0;
+    private const double SEKUNTI = 1.0;
+    private const double PAINOVOIMA = 150;
+    private const double LASKURI_SIJAINTI = 100.0;
+    private const int PISTEET = 50;
+    private const int PISTE_RAJA = 6;
 
     /// <summary>
     /// Pääohjelmassa kutsutaan aliohjelmia, joissa luodaan kenttä, lisätään pelaajan pisteiden laskuri ja asetetaan pelikentän ohjaimet.
     /// </summary>
     public override void Begin()
     {
+        ClearAll();
         LuoKentta();
         LisaaLaskurit();
         AsetaOhjaimet();
@@ -38,21 +50,21 @@ public class Hedelmät : PhysicsGame
     /// </summary>
     private void LuoKentta()
     {
-        laatikko = PhysicsObject.CreateStaticObject(300.0, 170.0);
-        laatikko.Image = LoadImage("LaatikkoTyhja");
-        laatikko.X = 0.0;
-        laatikko.Y = Level.Bottom + 50.0;
+        laatikko = PhysicsObject.CreateStaticObject(3*POHJAKOKO, 2*POHJAKOKO);
+        laatikko.Image = laatikkoKuvat[0];
+        laatikko.X = LAATIKKO_X;
+        laatikko.Y = Level.Bottom + LAATIKKO_Y;
         laatikko.IgnoresGravity = true;
         Add(laatikko);
 
 
         Timer timer = new Timer();
-        timer.Interval = 1.000;
+        timer.Interval = SEKUNTI;
         timer.Timeout += delegate { RandomGen.SelectOne<Action>(LuoBanaani, LuoMeloni).Invoke(); };
         timer.Start();
 
 
-        Gravity = new Vector(0.0, -150.0);
+        Gravity = new Vector(PYSAHTYY, -PAINOVOIMA);
         Level.Background.CreateGradient(Color.White, Color.Orange);
         Camera.ZoomToLevel();
 
@@ -62,58 +74,56 @@ public class Hedelmät : PhysicsGame
         PhysicsObject oikeaReuna = Level.CreateRightBorder();
         oikeaReuna.IsVisible = true;
 
-        alaReuna = Level.CreateBottomBorder();
-        alaReuna.IsVisible = false;
 
+        PhysicsObject alaReuna = Level.CreateBottomBorder();
+        alaReuna.IsVisible = false;
+        alaReuna.Tag = "alareuna";
     }
 
 
     /// <summary>
     /// Luodaan banaani, jota on tarkoitus kerätä laatikkoon.
-    /// Silmukka arpoo montako kappaletta banaaneja kentälle luodaan yhtäaikaa. Banaaneja arvotaan 1-3 kpl.  
     /// </summary>
     private void LuoBanaani()
     {
-        PhysicsObject banaani;
-        for (int i = 0; i < RandomGen.NextInt(1, 3); i++)
-        {
-            banaani = new PhysicsObject(70.0, 70.0);
-            banaani.Image = LoadImage("Banaani1");
-            banaani.X = RandomGen.NextDouble(Level.Left, Level.Right);
-            banaani.Y = Level.Top;
-            AddCollisionHandler(banaani, KasitteleHedelmanTormays);
-            AddCollisionHandler(banaani, KasitteleHedelmanAlaReunanTormays);
-            Add(banaani);
-        }
+            LuoHedelma(LoadImage("Banaani1"));
     }
 
 
     /// <summary>
     /// Luodaan meloni, jota on tarkoitus kerätä laatikkoon.
-    /// Silmukka arpoo montako kappaletta meloneja kentälle luodaan yhtäaikaa. Meloneja arvotaan 1-3 kpl.  
     /// </summary>
     private void LuoMeloni()
     {
-        PhysicsObject meloni;
-        for (int i = 0; i < RandomGen.NextInt(1, 3); i++)
-        {
-            meloni = new PhysicsObject(70.0, 70.0);
-            meloni.Image = LoadImage("Meloni1.0");
-            meloni.X = RandomGen.NextDouble(Level.Left, Level.Right);
-            meloni.Y = Level.Top;
-            AddCollisionHandler(meloni, KasitteleHedelmanTormays);
-            AddCollisionHandler(meloni, KasitteleHedelmanAlaReunanTormays);
-            Add(meloni);
-        }
+        LuoHedelma(LoadImage("Meloni1.0"));
     }
 
+
+    /// <summary>
+    /// Silmukka arpoo montako kappaletta hedelmiä kentälle luodaan yhtäaikaa. Hedelmiä arvotaan 1-3 kpl.  
+    /// </summary>
+    /// <param name="kuva">banaanin tai hedelmän kuva</param>
+    private void LuoHedelma(Image kuva)
+    {
+        PhysicsObject hedelma;
+        for (int i = 0; i < RandomGen.NextInt(MIN_HEDELMIEN_MAARA, MAX_HEDELMIEN_MAARA); i++)
+        {
+            hedelma = new PhysicsObject(POHJAKOKO, POHJAKOKO);
+            hedelma.Image = kuva;
+            hedelma.X = RandomGen.NextDouble(Level.Left, Level.Right);
+            hedelma.Y = Level.Top;
+            AddCollisionHandler(hedelma, KasitteleHedelmanTormays);
+            AddCollisionHandler(hedelma, "alareuna", KasitteleHedelmanAlaReunanTormays);
+            Add(hedelma);
+        }
+    }
 
     /// <summary>
     ///  Lisätään peliin laskuri, joka laskee pelaajan pisteet.
     /// </summary>
     private void LisaaLaskurit()
     {
-        pelaajanPisteet = LuoPisteLaskuri(Screen.Right - 100.0, Screen.Top - 100.0);
+        pelaajanPisteet = LuoPisteLaskuri(Screen.Right - LASKURI_SIJAINTI, Screen.Top - LASKURI_SIJAINTI);
     }
 
 
@@ -126,8 +136,8 @@ public class Hedelmät : PhysicsGame
     private IntMeter LuoPisteLaskuri(double x, double y)
     {
         IntMeter laskuri = new IntMeter(0);
-        laskuri.MaxValue = 50;
-        laskuri.MinValue = -50;
+        laskuri.MaxValue = PISTEET;
+        laskuri.MinValue = -PISTEET;
 
         Label naytto = new Label();
         naytto.BindTo(laskuri);
@@ -149,9 +159,7 @@ public class Hedelmät : PhysicsGame
     /// <param name="hedelma">parametri viittaa banaaniin tai meloniin</param>
     /// <param name="kohde">pelaaja eli hedelmälaatikko</param>
     private void KasitteleHedelmanTormays(PhysicsObject hedelma, PhysicsObject kohde)
-    {
-        Image[] laatikkoKuvat = LoadImages("LaatikkoTyhja", "LaatikkoPuoliksiTaynna", "LaatikkoTaynna");
-
+    { 
         if (kohde == laatikko)
         {
             Explosion rajahdys = new Explosion(hedelma.Width);
@@ -159,9 +167,9 @@ public class Hedelmät : PhysicsGame
             Add(rajahdys);
             hedelma.Destroy();
             pelaajanPisteet.Value ++;
-            if (pelaajanPisteet.Value <= 6) laatikko.Image = laatikkoKuvat[0];
-            if (pelaajanPisteet.Value > 6) laatikko.Image = laatikkoKuvat[1];
-            if (pelaajanPisteet.Value > 15) laatikko.Image = laatikkoKuvat[2];
+            if (pelaajanPisteet.Value <= PISTE_RAJA) laatikko.Image = laatikkoKuvat[0];
+            if (pelaajanPisteet.Value > PISTE_RAJA) laatikko.Image = laatikkoKuvat[1];
+            if (pelaajanPisteet.Value > 2*PISTE_RAJA) laatikko.Image = laatikkoKuvat[2];
             LopetaPeli();
         }
     }
@@ -175,10 +183,10 @@ public class Hedelmät : PhysicsGame
     /// <param name="alas"></param>
     private void KasitteleHedelmanAlaReunanTormays(PhysicsObject hedelma, PhysicsObject alas)
     {
-        if (alas == alaReuna)
+        // if (alas == alaReuna)
         {
             hedelma.Destroy();
-            pelaajanPisteet.Value -= 3;
+            pelaajanPisteet.Value -= PISTE_RAJA/2;
             LopetaPeli();
         }
     }
@@ -189,8 +197,8 @@ public class Hedelmät : PhysicsGame
     /// </summary>
     private void AsetaOhjaimet()
     {
-        Vector nopeusOikea = new Vector(500.0, 0.0);
-        Vector nopeusVasen = new Vector(-500.0, 0.0);
+        Vector nopeusOikea = new Vector(NOPEUS, PYSAHTYY);
+        Vector nopeusVasen = new Vector(-NOPEUS, PYSAHTYY);
 
         Keyboard.Listen(Key.Left, ButtonState.Down, AsetaNopeus, "Laatikko liikkuu vasemmalle", laatikko, nopeusVasen);
         Keyboard.Listen(Key.Left, ButtonState.Released, AsetaNopeus, null, laatikko, Vector.Zero);
@@ -234,23 +242,30 @@ public class Hedelmät : PhysicsGame
     /// </summary>
     private void LopetaPeli()
     {
-        if (pelaajanPisteet.Value >= 20)
+        if (pelaajanPisteet.Value >= (PISTE_RAJA*3)+2)
         {
-            MessageDisplay.Add("Voitit pelin!");
-            Gravity = Vector.Zero;
-            StopAll();
-            Keyboard.Disable(Key.Right);
-            Keyboard.Disable(Key.Left);
+            LoppuTulos("Voitit pelin!");
         }
 
-        if (pelaajanPisteet.Value <= -5)
+        if (pelaajanPisteet.Value <= -PISTE_RAJA)
         {
-            MessageDisplay.Add("Hävisit pelin!");
-            Gravity = Vector.Zero;
-            StopAll();
-            Keyboard.Disable(Key.Right);
-            Keyboard.Disable(Key.Left);
+            LoppuTulos("Hävisit pelin!");
         }
+    }
+
+
+    /// <summary>
+    /// Pelin loppumisen jälkeen kentältä katoaa kaikki ja 4 sekuntin kuluttua peli alkaa alusta.
+    /// </summary>
+    /// <param name="viesti">Viestii päättyikö peli voittoon vai häviöön</param>
+    private void LoppuTulos(String viesti)
+    {
+        MessageDisplay.Add(viesti);
+        Gravity = Vector.Zero;
+        StopAll();
+        Keyboard.Disable(Key.Right);
+        Keyboard.Disable(Key.Left);
+        Timer.SingleShot(3, Begin);
     }
 }
 
